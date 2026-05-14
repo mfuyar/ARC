@@ -6,7 +6,7 @@ import os
 import tempfile
 from pathlib import Path
 
-from flask import Flask, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, redirect, render_template, request, url_for
 
 from pdf_review_helper import compare_pdf_files
 
@@ -24,6 +24,26 @@ def _is_pdf(file_storage) -> bool:
 @app.route("/")
 def index():
     return render_template("index.html")
+
+
+@app.route("/sitemap.xml")
+def sitemap():
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
+        "<url>"
+        "<loc>https://ezarc-friendly-review.lovable.app/</loc>"
+        "<changefreq>monthly</changefreq>"
+        "<priority>1.0</priority>"
+        "</url>"
+        "</urlset>"
+    )
+    return Response(xml, mimetype="application/xml")
+
+
+@app.route("/robots.txt")
+def robots():
+    return app.send_static_file("robots.txt")
 
 
 PARK_AVENUE_GUIDELINE = Path(__file__).parent / "guidelines" / "park_avenue.pdf"
