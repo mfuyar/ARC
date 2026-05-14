@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+.env.*
+
+# HOA guideline files — store locally, never commit
+guidelines/
+
+# macOS
+.DS_Store

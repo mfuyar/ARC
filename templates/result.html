@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Review Result — Ez-ARC Review</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header>
+      <nav>
+        <div class="brand">Ez-ARC Review</div>
+        <div class="nav-links">
+          <a href="{{ url_for('index') }}">New review</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="result-page">
+      <div class="result-card">
+        {% if review.hoa_name %}
+          <p class="hoa-name-badge">{{ review.hoa_name }}</p>
+        {% endif %}
+        <h1>Review Result</h1>
+        <p><strong>Decision:</strong> {{ review.decision }}</p>
+        <p><strong>Summary:</strong> {{ review.rationale }}</p>
+
+        {% if review.details %}
+          <div>
+            <h2>Provided application details</h2>
+            <ul>
+              {% for detail in review.details %}
+                <li>{{ detail }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div>
+          <h2>Non-compliant items</h2>
+          {% if review.non_compliant_items %}
+            <div class="noncompliant-list">
+              {% for item in review.non_compliant_items %}
+                <div class="noncompliant-item">
+                  {% for line in item.split('\n') %}
+                    {% if line.strip() %}
+                      {% set parts = line.split(':', 1) %}
+                      {% if parts|length == 2 %}
+                        <p><strong>{{ parts[0].strip() }}:</strong> {{ parts[1].strip() }}</p>
+                      {% else %}
+                        <p>{{ line.strip() }}</p>
+                      {% endif %}
+                    {% endif %}
+                  {% endfor %}
+                </div>
+              {% endfor %}
+            </div>
+          {% else %}
+            <p>None detected.</p>
+          {% endif %}
+        </div>
+
+        {% if review.conditions %}
+          <div>
+            <h2>Conditions</h2>
+            <ul>
+              {% for condition in review.conditions %}
+                <li>{{ condition }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if review.quick_tips %}
+          <div class="quick-tips">
+            <h2>Quick tips to get approved</h2>
+            <ul>
+              {% for tip in review.quick_tips %}
+                <li>{{ tip }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if review.compliance_letter %}
+          <div class="compliance-letter {% if review.decision == 'Approved' %}approval{% endif %}">
+            <h2>{% if review.decision == 'Approved' %}Approval Letter{% else %}Compliance Letter to Homeowner{% endif %}</h2>
+            <pre>{{ review.compliance_letter }}</pre>
+          </div>
+        {% endif %}
+
+        <a class="button-primary" href="{{ url_for('index') }}">Back to review</a>
+      </div>
+    </main>
+
+    <footer>
+      <p>© 2026 Ez-ARC Review.</p>
+    </footer>
+  </body>
+</html>

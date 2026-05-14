@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Ez-ARC Review</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header>
+      <nav>
+        <div class="brand">Ez-ARC Review</div>
+        <div class="nav-links">
+          <a href="#workflow">Workflow</a>
+          <a href="#features">Features</a>
+          <a href="#start">Get Started</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="hero">
+      <section class="hero-copy">
+        <p style="text-transform: uppercase; letter-spacing: .2em; color: #38bdf8; font-weight: 700; margin-bottom: 1rem;">Architectural reviews, simplified.</p>
+        <h1>From proposal to HOA approval without the email overload.</h1>
+        <p>Ez-ARC Review guides homeowners through complete submissions, extracts the key application details, and checks each request against HOA guidelines for a fast, transparent decision.</p>
+        <div class="hero-actions">
+          <button class="button-primary" onclick="document.getElementById('review-form').scrollIntoView({ behavior: 'smooth' })">Start a Review</button>
+          <button class="button-secondary" onclick="document.getElementById('features').scrollIntoView({ behavior: 'smooth' })">See features</button>
+        </div>
+      </section>
+    </main>
+
+    <section class="section" id="workflow">
+      <div class="cards">
+        <div class="card">
+          <h3>01 Homeowner submits</h3>
+          <p>A guided portal collects plans, paint swatches, surveys, photos, and all required applicant details to prevent missing fields.</p>
+        </div>
+        <div class="card">
+          <h3>02 Committee reviews</h3>
+          <p>Board members review submissions online, compare them to HOA rules, and request clarifications without chasing attachments.</p>
+        </div>
+        <div class="card">
+          <h3>03 Decision archived</h3>
+          <p>Generate an approval letter automatically, preserve the audit trail, and store the decision history for governance.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <h2>Everything an ARC committee needs</h2>
+      <div class="feature-grid">
+        <div class="card">
+          <h3>Smart submissions</h3>
+          <p>Collect complete application details like name, email, address, project site, and description in one polished review form.</p>
+        </div>
+        <div class="card">
+          <h3>Guideline-driven decisions</h3>
+          <p>Reference HOA rules automatically and surface non-compliance items so decisions are consistent and defensible.</p>
+        </div>
+        <div class="card">
+          <h3>Approval tracking</h3>
+          <p>Show decision status and conditions clearly, so homeowners understand what is approved and what still needs work.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="start">
+      <div class="workflow">
+        <div class="step">
+          <div class="step-number">1</div>
+          <h3>Completed application details</h3>
+          <p>Enter the applicant's name, email, address, project address, and project summary before submitting.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">2</div>
+          <h3>Upload PDFs</h3>
+          <p>Submit the HOA guideline and ARC application PDFs together for a complete rule-based review.</p>
+        </div>
+        <div class="step">
+          <div class="step-number">3</div>
+          <h3>Review decision</h3>
+          <p>Receive an approval recommendation, see non-compliance items, and get conditions for partial approvals.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="card">
+        <h2>Ready to upgrade your HOA workflow?</h2>
+        <p>Replace lost PDFs and email threads with a structured, modern review process designed for homeowners and committees.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="upload-card" id="review-form">
+        <h2>Start a review</h2>
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- Step 1: membership question -->
+        <div id="membership-step">
+          <p class="membership-question">Are you a <strong>Park Avenue HOA</strong> member?</p>
+          <div class="membership-btns">
+            <button type="button" class="member-btn" id="btn-yes">
+              <span class="member-icon">🏘️</span>
+              Yes, I'm a Park Avenue member
+            </button>
+            <button type="button" class="member-btn" id="btn-no">
+              <span class="member-icon">📄</span>
+              No, I have my own guideline
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2: upload form (hidden until membership answered) -->
+        <form id="upload-form" action="{{ url_for('review') }}" method="post" enctype="multipart/form-data" style="display:none">
+          <input type="hidden" name="is_park_avenue" id="is_park_avenue" value="false">
+
+          <div class="drop-grid" id="drop-grid">
+            <div class="drop-zone" id="drop-guideline" data-input="guideline_pdf">
+              <div class="drop-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              </div>
+              <p class="drop-label">HOA Guideline PDF</p>
+              <p class="drop-hint">Drag &amp; drop or <span class="drop-browse">browse</span></p>
+              <p class="drop-filename" id="name-guideline_pdf"></p>
+              <input id="guideline_pdf" name="guideline_pdf" type="file" accept="application/pdf">
+            </div>
+
+            <div class="drop-zone" id="drop-application" data-input="application_pdf">
+              <div class="drop-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+              </div>
+              <p class="drop-label">ARC Application PDF</p>
+              <p class="drop-hint">Drag &amp; drop or <span class="drop-browse">browse</span></p>
+              <p class="drop-filename" id="name-application_pdf"></p>
+              <input id="application_pdf" name="application_pdf" type="file" accept="application/pdf" required>
+            </div>
+          </div>
+
+          <button type="submit" class="button-primary submit-btn" id="submit-btn" disabled>
+            <span id="submit-label">Upload your application to continue</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <script>
+      (function () {
+        var isParkAvenue = false;
+
+        document.getElementById('btn-yes').addEventListener('click', function () {
+          isParkAvenue = true;
+          document.getElementById('is_park_avenue').value = 'true';
+          // Hide guideline drop zone — Park Avenue guideline is pre-loaded
+          var guidelineZone = document.getElementById('drop-guideline');
+          guidelineZone.style.display = 'none';
+          guidelineZone.classList.add('has-file'); // counts as satisfied
+          document.getElementById('drop-grid').style.gridTemplateColumns = '1fr';
+          showForm('Upload your ARC application PDF');
+        });
+
+        document.getElementById('btn-no').addEventListener('click', function () {
+          isParkAvenue = false;
+          document.getElementById('is_park_avenue').value = 'false';
+          document.getElementById('drop-guideline').style.display = '';
+          document.getElementById('drop-guideline').classList.remove('has-file');
+          document.getElementById('drop-grid').style.gridTemplateColumns = '';
+          showForm('Upload both PDFs to continue');
+        });
+
+        function showForm(hint) {
+          document.getElementById('membership-step').style.display = 'none';
+          document.getElementById('upload-form').style.display = 'block';
+          document.getElementById('submit-label').textContent = hint;
+          updateSubmit();
+        }
+
+        var zones = document.querySelectorAll('.drop-zone');
+        zones.forEach(function (zone) {
+          var inputId = zone.dataset.input;
+          var input = document.getElementById(inputId);
+          var nameEl = document.getElementById('name-' + inputId);
+
+          if (!input) return;
+
+          input.addEventListener('change', function () {
+            if (input.files[0]) setFile(zone, nameEl, input.files[0].name);
+          });
+
+          zone.addEventListener('dragover', function (e) {
+            e.preventDefault();
+            zone.classList.add('drag-over');
+          });
+
+          zone.addEventListener('dragleave', function () {
+            zone.classList.remove('drag-over');
+          });
+
+          zone.addEventListener('drop', function (e) {
+            e.preventDefault();
+            zone.classList.remove('drag-over');
+            var file = e.dataTransfer.files[0];
+            if (file && file.type === 'application/pdf') {
+              var dt = new DataTransfer();
+              dt.items.add(file);
+              input.files = dt.files;
+              setFile(zone, nameEl, file.name);
+            } else {
+              zone.classList.add('drop-error');
+              setTimeout(function () { zone.classList.remove('drop-error'); }, 1200);
+            }
+          });
+        });
+
+        function setFile(zone, nameEl, name) {
+          zone.classList.add('has-file');
+          nameEl.textContent = name;
+          updateSubmit();
+        }
+
+        function updateSubmit() {
+          var btn = document.getElementById('submit-btn');
+          var label = document.getElementById('submit-label');
+          var visibleZones = Array.from(document.querySelectorAll('.drop-zone')).filter(function (z) {
+            return z.style.display !== 'none';
+          });
+          var allSet = visibleZones.every(function (z) { return z.classList.contains('has-file'); });
+          btn.disabled = !allSet;
+          if (allSet) label.textContent = 'Review submission';
+        }
+
+        document.getElementById('upload-form').addEventListener('submit', function () {
+          var btn = document.getElementById('submit-btn');
+          var label = document.getElementById('submit-label');
+          btn.disabled = true;
+          label.textContent = 'Reviewing… this may take a moment';
+          btn.classList.add('loading');
+        });
+      })();
+    </script>
+
+    <footer>
+      <p>© 2026 Ez-ARC Review.</p>
+    </footer>
+  </body>
+</html>
