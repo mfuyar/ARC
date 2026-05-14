@@ -4,8 +4,8 @@ __pycache__/
 .env
 .env.*
 
-# HOA guideline files — store locally, never commit
-guidelines/
+# HOA guideline PDFs — large binaries, keep local
+guidelines/*.pdf
 
 # macOS
 .DS_Store
