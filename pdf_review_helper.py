@@ -124,72 +124,69 @@ _park_avenue_cache_name: str | None = None
 _park_avenue_cache_expiry: float = 0.0
 
 
-def _build_park_avenue_cache(client: genai.Client, guideline_path: Path) -> str:
-    """Create a Gemini context cache for the Park Avenue guideline.
-
-    Strategy:
-      1. If a .txt file exists alongside the PDF and has enough content,
-         embed the text directly — zero file upload cost.
-      2. Otherwise upload the PDF (handles images/illustrations).
-    """
+def _build_park_avenue_cache(client: genai.Client, guideline_path: Path) -> str | None:
+    """Try to create a Gemini context cache. Returns cache name or None if unsupported."""
     txt_path = guideline_path.with_suffix(".txt")
     use_text = txt_path.exists() and txt_path.stat().st_size >= _MIN_TEXT_CHARS
 
-    if use_text:
-        guideline_text = txt_path.read_text(encoding="utf-8", errors="replace")
-        contents = [
-            genai_types.Content(
-                role="user",
-                parts=[
-                    genai_types.Part(
-                        text=f"PARK AVENUE HOA GUIDELINE DOCUMENT:\n\n{guideline_text}"
-                    )
-                ],
-            )
-        ]
-        cache = client.caches.create(
-            model="gemini-2.5-flash",
-            config=genai_types.CreateCachedContentConfig(
-                contents=contents,
-                system_instruction=_SYSTEM_PROMPT,
-                ttl=f"{_CACHE_TTL}s",
-            ),
-        )
-    else:
-        # Fall back to PDF upload (preserves images and illustrations)
-        uploaded = client.files.upload(
-            file=guideline_path,
-            config=genai_types.UploadFileConfig(mime_type="application/pdf"),
-        )
-        try:
+    try:
+        if use_text:
+            guideline_text = txt_path.read_text(encoding="utf-8", errors="replace")
+            contents = [
+                genai_types.Content(
+                    role="user",
+                    parts=[
+                        genai_types.Part(
+                            text=f"PARK AVENUE HOA GUIDELINE DOCUMENT:\n\n{guideline_text}"
+                        )
+                    ],
+                )
+            ]
             cache = client.caches.create(
                 model="gemini-2.5-flash",
                 config=genai_types.CreateCachedContentConfig(
-                    contents=[
-                        genai_types.Content(
-                            role="user",
-                            parts=[
-                                genai_types.Part.from_uri(
-                                    file_uri=uploaded.uri,
-                                    mime_type="application/pdf",
-                                )
-                            ],
-                        )
-                    ],
+                    contents=contents,
                     system_instruction=_SYSTEM_PROMPT,
                     ttl=f"{_CACHE_TTL}s",
                 ),
             )
-        finally:
+            return cache.name
+        else:
+            uploaded = client.files.upload(
+                file=guideline_path,
+                config=genai_types.UploadFileConfig(mime_type="application/pdf"),
+            )
             try:
-                client.files.delete(name=uploaded.name)
-            except Exception:
-                pass
+                cache = client.caches.create(
+                    model="gemini-2.5-flash",
+                    config=genai_types.CreateCachedContentConfig(
+                        contents=[
+                            genai_types.Content(
+                                role="user",
+                                parts=[
+                                    genai_types.Part.from_uri(
+                                        file_uri=uploaded.uri,
+                                        mime_type="application/pdf",
+                                    )
+                                ],
+                            )
+                        ],
+                        system_instruction=_SYSTEM_PROMPT,
+                        ttl=f"{_CACHE_TTL}s",
+                    ),
+                )
+                return cache.name
+            finally:
+                try:
+                    client.files.delete(name=uploaded.name)
+                except Exception:
+                    pass
+    except Exception:
+        # Context caching not supported for this model/plan — fall back to direct call
+        return None
 
-    return cache.name
 
-
-def _get_or_create_park_avenue_cache(client: genai.Client, guideline_path: Path) -> str:
+def _get_or_create_park_avenue_cache(client: genai.Client, guideline_path: Path) -> str | None:
     global _park_avenue_cache_name, _park_avenue_cache_expiry
 
     with _cache_lock:
@@ -197,9 +194,11 @@ def _get_or_create_park_avenue_cache(client: genai.Client, guideline_path: Path)
         if _park_avenue_cache_name and now < _park_avenue_cache_expiry:
             return _park_avenue_cache_name
 
-        _park_avenue_cache_name = _build_park_avenue_cache(client, guideline_path)
-        _park_avenue_cache_expiry = now + _CACHE_TTL - _CACHE_REFRESH_BUFFER
-        return _park_avenue_cache_name
+        name = _build_park_avenue_cache(client, guideline_path)
+        if name:
+            _park_avenue_cache_name = name
+            _park_avenue_cache_expiry = now + _CACHE_TTL - _CACHE_REFRESH_BUFFER
+        return name
 
 
 # ---------------------------------------------------------------------------
@@ -232,9 +231,11 @@ def compare_pdf_files(
     )
 
     try:
+        cache_name = None
         if is_park_avenue and guideline_path:
-            # Use cached guideline — system_instruction is part of the cache
             cache_name = _get_or_create_park_avenue_cache(client, guideline_path)
+
+        if cache_name:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=[
@@ -251,25 +252,22 @@ def compare_pdf_files(
                 ),
             )
         else:
-            # Upload guideline PDF fresh for every non-Park-Avenue request
-            guideline_file = client.files.upload(
-                file=guideline_path,
-                config=genai_types.UploadFileConfig(mime_type="application/pdf"),
-            )
-            try:
+            # Check for txt guideline (Park Avenue fallback or uploaded txt)
+            txt_path = Path(guideline_path).with_suffix(".txt") if guideline_path else None
+            if txt_path and txt_path.exists() and txt_path.stat().st_size >= _MIN_TEXT_CHARS:
+                guideline_text = txt_path.read_text(encoding="utf-8", errors="replace")
                 response = client.models.generate_content(
                     model="gemini-2.5-flash",
                     contents=[
-                        genai_types.Part.from_uri(
-                            file_uri=guideline_file.uri,
-                            mime_type="application/pdf",
+                        genai_types.Part(
+                            text=f"HOA GUIDELINE DOCUMENT:\n\n{guideline_text}"
                         ),
                         genai_types.Part.from_uri(
                             file_uri=app_file.uri,
                             mime_type="application/pdf",
                         ),
-                        "The first document is the HOA guideline. "
-                        "The second is the ARC application. "
+                        "The first content is the HOA guideline text. "
+                        "The second is the ARC application PDF. "
                         "Follow your system instructions and return the JSON review.",
                     ],
                     config=genai_types.GenerateContentConfig(
@@ -277,11 +275,38 @@ def compare_pdf_files(
                         response_mime_type="application/json",
                     ),
                 )
-            finally:
+            else:
+                # Upload guideline PDF
+                guideline_file = client.files.upload(
+                    file=guideline_path,
+                    config=genai_types.UploadFileConfig(mime_type="application/pdf"),
+                )
                 try:
-                    client.files.delete(name=guideline_file.name)
-                except Exception:
-                    pass
+                    response = client.models.generate_content(
+                        model="gemini-2.5-flash",
+                        contents=[
+                            genai_types.Part.from_uri(
+                                file_uri=guideline_file.uri,
+                                mime_type="application/pdf",
+                            ),
+                            genai_types.Part.from_uri(
+                                file_uri=app_file.uri,
+                                mime_type="application/pdf",
+                            ),
+                            "The first document is the HOA guideline. "
+                            "The second is the ARC application. "
+                            "Follow your system instructions and return the JSON review.",
+                        ],
+                        config=genai_types.GenerateContentConfig(
+                            system_instruction=_SYSTEM_PROMPT,
+                            response_mime_type="application/json",
+                        ),
+                    )
+                finally:
+                    try:
+                        client.files.delete(name=guideline_file.name)
+                    except Exception:
+                        pass
     finally:
         try:
             client.files.delete(name=app_file.name)
