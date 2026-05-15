@@ -2,11 +2,14 @@
 """Flask web app for HOA/ARC PDF review."""
 
 import argparse
+import logging
 import os
 import tempfile
 from pathlib import Path
 
 from flask import Flask, Response, flash, redirect, render_template, request, url_for
+
+logging.basicConfig(level=logging.INFO)
 
 from pdf_review_helper import compare_pdf_files
 
@@ -44,6 +47,16 @@ def sitemap():
 @app.route("/robots.txt")
 def robots():
     return app.send_static_file("robots.txt")
+
+
+@app.route("/health")
+def health():
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    txt = PARK_AVENUE_GUIDELINE_TXT.exists()
+    return Response(
+        f"ok\nGOOGLE_API_KEY set: {bool(api_key)}\npark_avenue.txt: {txt}",
+        mimetype="text/plain",
+    )
 
 
 PARK_AVENUE_GUIDELINE = Path(__file__).parent / "guidelines" / "park_avenue.pdf"
@@ -105,6 +118,7 @@ def review():
         flash(f"Could not read PDF: {exc}")
         return redirect(url_for("index"))
     except Exception as exc:
+        logging.exception("Review failed")
         flash(f"Error: {exc}")
         return redirect(url_for("index"))
     finally:
