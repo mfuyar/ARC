@@ -492,3 +492,56 @@ footer {
     grid-template-columns: 1fr;
   }
 }
+
+.donate-card {
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  border-radius: 1.5rem;
+  padding: 2.5rem;
+  text-align: center;
+  color: white;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.donate-label {
+  text-transform: uppercase;
+  letter-spacing: .2em;
+  color: #38bdf8;
+  font-weight: 700;
+  font-size: 0.75rem;
+  margin: 0 0 0.75rem;
+}
+
+.donate-card h2 {
+  margin: 0 0 1rem;
+  font-size: 1.6rem;
+}
+
+.donate-card p {
+  color: #94a3b8;
+  line-height: 1.7;
+  margin: 0 0 1.75rem;
+  max-width: 480px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.button-venmo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  background: #008CFF;
+  color: white;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.9rem 2rem;
+  border-radius: 999px;
+  text-decoration: none;
+  transition: background 0.2s, transform 0.15s;
+}
+
+.button-venmo:hover {
+  background: #0070cc;
+  transform: translateY(-1px);
+  color: white;
+}
