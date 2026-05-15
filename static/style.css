@@ -88,8 +88,9 @@ main.hero {
 }
 
 .button-secondary {
-  background: rgba(148, 163, 184, 0.15);
-  color: #e2e8f0;
+  background: rgba(148, 163, 184, 0.25);
+  color: #f1f5f9;
+  border: 1px solid rgba(148, 163, 184, 0.4);
 }
 
 .hero-image {
