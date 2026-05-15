@@ -56,18 +56,23 @@
       </nav>
     </header>
 
-    <main class="hero">
-      <section class="hero-copy">
-        <p style="text-transform: uppercase; letter-spacing: .2em; color: #38bdf8; font-weight: 700; margin-bottom: 1rem;">Architectural reviews, simplified.</p>
-        <h1>From proposal to HOA approval without the email overload.</h1>
-        <p>Ez-ARC Review guides homeowners through complete submissions, extracts the key application details, and checks each request against HOA guidelines for a fast, transparent decision.</p>
-        <div class="hero-actions">
-          <button class="button-primary" onclick="document.getElementById('review-form').scrollIntoView({ behavior: 'smooth' })">Start a Review</button>
-          <a class="button-primary" href="{{ url_for('apply') }}" style="text-decoration:none; background:#0ea5e9;">Build an Application</a>
-          <button class="button-secondary" onclick="document.getElementById('features').scrollIntoView({ behavior: 'smooth' })">See features</button>
+    <div class="hero-wrapper">
+      <main class="hero">
+        <section class="hero-copy">
+          <p style="text-transform: uppercase; letter-spacing: .2em; color: #38bdf8; font-weight: 700; margin-bottom: 1rem;">Architectural reviews, simplified.</p>
+          <h1>From proposal to HOA approval without the email overload.</h1>
+          <p>Ez-ARC Review guides homeowners through complete submissions, extracts the key application details, and checks each request against HOA guidelines for a fast, transparent decision.</p>
+          <div class="hero-actions">
+            <button class="button-primary" onclick="document.getElementById('review-form').scrollIntoView({ behavior: 'smooth' })">Start a Review</button>
+            <a class="button-primary" href="{{ url_for('apply') }}" style="background:#0ea5e9;">Build an Application</a>
+            <button class="button-secondary" onclick="document.getElementById('features').scrollIntoView({ behavior: 'smooth' })">See features</button>
+          </div>
+        </section>
+        <div class="hero-image">
+          <img src="{{ url_for('static', filename='hoaarc.png') }}" alt="HOA ARC review illustration" style="width:100%; border-radius:1rem; box-shadow:0 8px 32px rgba(0,0,0,0.4);">
         </div>
-      </section>
-    </main>
+      </main>
+    </div>
 
     <section class="section" id="workflow">
       <div class="cards">
