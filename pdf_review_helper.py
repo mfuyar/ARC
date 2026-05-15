@@ -396,7 +396,18 @@ _APPLY_SYSTEM_PROMPT = (
     "  common_mistakes      — list of specific mistakes homeowners make on this project type "
     "that cause rejection or delay. Each must reference the guideline rule being violated.\n"
     "  fast_approval_tips   — list of short actionable tips to get this specific project approved faster, "
-    "each referencing the relevant guideline rule"
+    "each referencing the relevant guideline rule\n"
+    "  form_fields          — the HOA's ARC application form structured as sections. "
+    "Extract this from the actual application template in the guideline; if none exists, "
+    "infer the fields from the stated requirements for this project type. "
+    "Return a list of section objects, each with:\n"
+    "    'section': section heading (e.g. 'Applicant Information', 'Project Details')\n"
+    "    'fields': list of field objects, each with:\n"
+    "      'label': exact field label as it appears on the form\n"
+    "      'type': one of 'text', 'textarea', 'date', 'checkbox', 'signature'\n"
+    "      'required': true or false\n"
+    "  Use 'checkbox' for acknowledgement items and initials lines. "
+    "Use 'signature' only for signature/date pairs at the end."
 )
 
 

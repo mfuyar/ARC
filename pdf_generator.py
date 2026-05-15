@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a professional ARC application PDF."""
+"""Generate a professional ARC application PDF using HOA-extracted form fields."""
 
 from __future__ import annotations
 
@@ -20,178 +20,246 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+_DARK = colors.HexColor("#0f172a")
+_BLUE = colors.HexColor("#0ea5e9")
+_LIGHT_BG = colors.HexColor("#f8fafc")
+_WHITE = colors.white
+_BORDER = colors.HexColor("#e2e8f0")
+_MUTED = colors.HexColor("#64748b")
+_RED = colors.HexColor("#ef4444")
+
+
+def _styles() -> dict[str, ParagraphStyle]:
+    base = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle("ATitle", parent=base["Normal"],
+            fontSize=20, fontName="Helvetica-Bold", textColor=_DARK, spaceAfter=4),
+        "sub": ParagraphStyle("ASub", parent=base["Normal"],
+            fontSize=10, textColor=_MUTED, spaceAfter=2),
+        "section": ParagraphStyle("ASection", parent=base["Normal"],
+            fontSize=11, fontName="Helvetica-Bold", textColor=_BLUE,
+            spaceBefore=14, spaceAfter=5),
+        "body": ParagraphStyle("ABody", parent=base["Normal"],
+            fontSize=10, textColor=_DARK, leading=15),
+        "small": ParagraphStyle("ASmall", parent=base["Normal"],
+            fontSize=8.5, textColor=_MUTED, leading=13),
+        "check": ParagraphStyle("ACheck", parent=base["Normal"],
+            fontSize=9.5, textColor=_DARK, leading=14, leftIndent=8),
+        "flabel": ParagraphStyle("AFlabel", parent=base["Normal"],
+            fontSize=8.5, fontName="Helvetica-Bold", textColor=_MUTED, leading=12),
+        "fvalue": ParagraphStyle("AFvalue", parent=base["Normal"],
+            fontSize=10, textColor=_DARK, leading=14),
+    }
+
+
+# Keywords used to auto-fill fields from applicant data
+_FILL_RULES: list[tuple[list[str], str]] = [
+    (["owner name", "applicant name", "homeowner name", "property owner", "your name", "resident name"], "name"),
+    (["email", "e-mail", "electronic mail"], "email"),
+    (["phone", "telephone", "cell", "contact number", "mobile"], "phone"),
+    (["mailing address", "billing address"], "mailing_address"),
+    (["property address", "project address", "site address", "property location", "lot address"], "property_address"),
+    (["description of work", "project description", "describe the", "scope of work",
+      "work to be performed", "nature of improvement", "proposed work"], "project_description"),
+    (["type of improvement", "project type", "type of project", "type of request",
+      "improvement type", "category"], "project_type_"),  # special: from guidance
+]
+
+
+def _auto_fill(label: str, applicant: dict[str, str], guidance: dict[str, Any]) -> str:
+    ll = label.lower()
+    for keywords, key in _FILL_RULES:
+        if any(kw in ll for kw in keywords):
+            if key == "project_type_":
+                return guidance.get("project_type", "")
+            val = applicant.get(key, "")
+            if not val and key == "property_address":
+                val = applicant.get("mailing_address", "")
+            return val
+    if "date" in ll and any(w in ll for w in ("application date", "date of application",
+                                               "date submitted", "submission date", "today")):
+        return date.today().strftime("%B %d, %Y")
+    return ""
+
+
+def _field_row(story: list, label: str, value: str, required: bool, s: dict) -> None:
+    req = ' <font color="#ef4444">*</font>' if required else ""
+    data = [[
+        Paragraph(f"{label}{req}", s["flabel"]),
+        Paragraph(value or "___________________________", s["fvalue"]),
+    ]]
+    t = Table(data, colWidths=[2.1 * inch, 4.9 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (0, 0), _LIGHT_BG),
+        ("BACKGROUND", (1, 0), (1, 0), _WHITE),
+        ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+        ("LINEAFTER", (0, 0), (0, 0), 0.5, _BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 1))
+
+
+def _textarea_row(story: list, label: str, value: str, required: bool, s: dict) -> None:
+    req = ' <font color="#ef4444">*</font>' if required else ""
+    rows = [
+        [Paragraph(f"{label}{req}", s["flabel"])],
+        [Paragraph(value or " \n \n ", s["fvalue"])],
+    ]
+    t = Table(rows, colWidths=[7.0 * inch])
+    t.setStyle(TableStyle([
+        ("BACKGROUND", (0, 0), (-1, 0), _LIGHT_BG),
+        ("BACKGROUND", (0, 1), (-1, 1), _WHITE),
+        ("BOX", (0, 0), (-1, -1), 0.5, _BORDER),
+        ("LINEBELOW", (0, 0), (-1, 0), 0.5, _BORDER),
+        ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 1), (-1, 1), 18),
+        ("LEFTPADDING", (0, 0), (-1, -1), 8),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 1))
+
+
+def _sig_row(story: list, label: str, applicant: dict[str, str], s: dict) -> None:
+    story.append(Spacer(1, 10))
+    data = [[
+        Paragraph(f"<b>{label}</b>", s["body"]),
+        Paragraph("_" * 28, s["body"]),
+        Paragraph("<b>Printed Name</b>", s["body"]),
+        Paragraph(applicant.get("name") or "_" * 20, s["body"]),
+        Paragraph("<b>Date</b>", s["body"]),
+        Paragraph(date.today().strftime("%m/%d/%Y"), s["body"]),
+    ]]
+    t = Table(data, colWidths=[1.5*inch, 1.6*inch, 1.1*inch, 1.5*inch, 0.6*inch, 0.9*inch])
+    t.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 9.5),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("VALIGN", (0, 0), (-1, -1), "BOTTOM"),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 4))
+
 
 def generate_arc_application(
     guidance: dict[str, Any],
     applicant: dict[str, str],
 ) -> bytes:
-    """Return PDF bytes for a completed ARC application."""
-
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
-        buf,
-        pagesize=letter,
-        rightMargin=0.85 * inch,
-        leftMargin=0.85 * inch,
-        topMargin=0.85 * inch,
-        bottomMargin=0.85 * inch,
+        buf, pagesize=letter,
+        rightMargin=0.85*inch, leftMargin=0.85*inch,
+        topMargin=0.85*inch, bottomMargin=0.85*inch,
     )
-
-    styles = getSampleStyleSheet()
-    dark = colors.HexColor("#0f172a")
-    blue = colors.HexColor("#0ea5e9")
-    light_bg = colors.HexColor("#f8fafc")
-    red = colors.HexColor("#ef4444")
-
-    title_style = ParagraphStyle(
-        "Title", parent=styles["Normal"],
-        fontSize=20, fontName="Helvetica-Bold", textColor=dark,
-        spaceAfter=4,
-    )
-    sub_style = ParagraphStyle(
-        "Sub", parent=styles["Normal"],
-        fontSize=10, textColor=colors.HexColor("#64748b"),
-        spaceAfter=2,
-    )
-    section_style = ParagraphStyle(
-        "Section", parent=styles["Normal"],
-        fontSize=11, fontName="Helvetica-Bold", textColor=blue,
-        spaceBefore=14, spaceAfter=6,
-    )
-    body_style = ParagraphStyle(
-        "Body", parent=styles["Normal"],
-        fontSize=10, textColor=dark, leading=15,
-    )
-    small_style = ParagraphStyle(
-        "Small", parent=styles["Normal"],
-        fontSize=8.5, textColor=colors.HexColor("#64748b"), leading=13,
-    )
-    check_style = ParagraphStyle(
-        "Check", parent=styles["Normal"],
-        fontSize=9.5, textColor=dark, leading=14, leftIndent=10,
-    )
-
+    s = _styles()
     hoa_name = guidance.get("hoa_name") or "Homeowners Association"
     project_type = guidance.get("project_type", "")
-    story = []
+    form_fields: list[dict] = guidance.get("form_fields") or []
+    story: list = []
 
-    # ── Header ──────────────────────────────────────────────────────────────
-    story.append(Paragraph(hoa_name, title_style))
-    story.append(Paragraph("Architectural Review Committee — Application for Approval", sub_style))
-    story.append(HRFlowable(width="100%", thickness=2, color=blue, spaceAfter=12))
+    # ── Header ───────────────────────────────────────────────────────────────
+    story.append(Paragraph(hoa_name, s["title"]))
+    story.append(Paragraph("Architectural Review Committee — Application for Approval", s["sub"]))
+    story.append(HRFlowable(width="100%", thickness=2, color=_BLUE, spaceAfter=10))
 
-    # ── Meta row ────────────────────────────────────────────────────────────
-    meta_data = [
-        ["Date:", date.today().strftime("%B %d, %Y"), "Project Type:", project_type],
-    ]
-    meta_table = Table(meta_data, colWidths=[1.1 * inch, 2.4 * inch, 1.2 * inch, 2.3 * inch])
-    meta_table.setStyle(TableStyle([
+    meta = Table(
+        [["Date:", date.today().strftime("%B %d, %Y"), "Project Type:", project_type]],
+        colWidths=[1.0*inch, 2.5*inch, 1.1*inch, 2.4*inch],
+    )
+    meta.setStyle(TableStyle([
         ("FONTNAME", (0, 0), (-1, -1), "Helvetica"),
         ("FONTNAME", (0, 0), (0, 0), "Helvetica-Bold"),
         ("FONTNAME", (2, 0), (2, 0), "Helvetica-Bold"),
         ("FONTSIZE", (0, 0), (-1, -1), 9.5),
-        ("TEXTCOLOR", (0, 0), (-1, -1), dark),
+        ("TEXTCOLOR", (0, 0), (-1, -1), _DARK),
         ("BOTTOMPADDING", (0, 0), (-1, -1), 2),
     ]))
-    story.append(meta_table)
-    story.append(Spacer(1, 10))
+    story.append(meta)
+    story.append(Spacer(1, 14))
 
-    # ── Applicant information ────────────────────────────────────────────────
-    story.append(Paragraph("1. Applicant Information", section_style))
+    # ── Form body ─────────────────────────────────────────────────────────────
+    if form_fields:
+        has_sig = False
+        for sec in form_fields:
+            story.append(Paragraph(sec.get("section", ""), s["section"]))
+            for field in sec.get("fields", []):
+                ftype = field.get("type", "text")
+                label = field.get("label", "")
+                required = bool(field.get("required", False))
+                value = _auto_fill(label, applicant, guidance)
 
-    fields = [
-        ("Owner Name", applicant.get("name", "")),
-        ("Email Address", applicant.get("email", "")),
-        ("Phone Number", applicant.get("phone", "")),
-        ("Mailing Address", applicant.get("mailing_address", "")),
-        ("Property / Project Address", applicant.get("property_address", "")),
-    ]
+                if ftype == "checkbox":
+                    story.append(Paragraph(f"☐  {label}", s["check"]))
+                    story.append(Spacer(1, 3))
+                elif ftype == "signature":
+                    _sig_row(story, label, applicant, s)
+                    has_sig = True
+                elif ftype == "textarea":
+                    _textarea_row(story, label, value, required, s)
+                else:
+                    _field_row(story, label, value, required, s)
+        if not has_sig:
+            _add_default_sig(story, applicant, s)
+    else:
+        # Fallback: generic layout
+        story.append(Paragraph("1. Applicant Information", s["section"]))
+        for label, key in [
+            ("Owner Name", "name"), ("Email", "email"), ("Phone", "phone"),
+            ("Mailing Address", "mailing_address"), ("Property Address", "property_address"),
+        ]:
+            _field_row(story, label, applicant.get(key, ""), False, s)
 
-    field_data = [[Paragraph(f"<b>{label}</b>", body_style),
-                   Paragraph(value or "___________________________", body_style)]
-                  for label, value in fields]
+        story.append(Paragraph("2. Project Description", s["section"]))
+        _textarea_row(story, "Description of Work",
+                      applicant.get("project_description") or guidance.get("overview", ""),
+                      False, s)
 
-    field_table = Table(field_data, colWidths=[2.2 * inch, 4.8 * inch])
-    field_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), light_bg),
-        ("ROWBACKGROUND", (0, 0), (-1, -1), [light_bg, colors.white]),
-        ("BOX", (0, 0), (-1, -1), 0.5, colors.HexColor("#e2e8f0")),
-        ("LINEBELOW", (0, 0), (-1, -2), 0.5, colors.HexColor("#e2e8f0")),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("LEFTPADDING", (0, 0), (-1, -1), 8),
-    ]))
-    story.append(field_table)
+        for heading, key in [
+            ("3. Information to Include", "required_info"),
+            ("4. Documents & Attachments", "required_documents"),
+            ("5. Guideline Compliance", "key_rules"),
+        ]:
+            items = guidance.get(key, [])
+            if items:
+                story.append(Paragraph(heading, s["section"]))
+                for item in items:
+                    story.append(Paragraph(f"☐  {item}", s["check"]))
+                story.append(Spacer(1, 4))
 
-    # ── Project description ──────────────────────────────────────────────────
-    story.append(Paragraph("2. Project Description", section_style))
-    desc = applicant.get("project_description") or guidance.get("overview", "")
-    story.append(Paragraph(desc or "See attached plans.", body_style))
-    story.append(Spacer(1, 8))
+        _add_default_sig(story, applicant, s)
 
-    # ── Required information checklist ───────────────────────────────────────
-    req_info = guidance.get("required_info", [])
-    if req_info:
-        story.append(Paragraph("3. Information Provided in This Application", section_style))
-        story.append(Paragraph(
-            "Check each item confirming it is included or attached:", small_style))
-        story.append(Spacer(1, 4))
-        for item in req_info:
-            story.append(Paragraph(f"☐  {item}", check_style))
-        story.append(Spacer(1, 4))
-
-    # ── Required documents ───────────────────────────────────────────────────
-    req_docs = guidance.get("required_documents", [])
-    if req_docs:
-        story.append(Paragraph("4. Documents &amp; Attachments", section_style))
-        for item in req_docs:
-            story.append(Paragraph(f"☐  {item}", check_style))
-        story.append(Spacer(1, 4))
-
-    # ── Key rules acknowledgement ────────────────────────────────────────────
-    key_rules = guidance.get("key_rules", [])
-    if key_rules:
-        story.append(Paragraph("5. Guideline Compliance Acknowledgement", section_style))
-        story.append(Paragraph(
-            "I confirm my project complies with the following guidelines:", small_style))
-        story.append(Spacer(1, 4))
-        for rule in key_rules:
-            story.append(Paragraph(f"☐  {rule}", check_style))
-        story.append(Spacer(1, 4))
-
-    # ── Signature block ──────────────────────────────────────────────────────
-    story.append(Spacer(1, 16))
-    story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e2e8f0")))
-    story.append(Spacer(1, 10))
-
-    sig_data = [
-        [
-            Paragraph("<b>Applicant Signature</b>", body_style),
-            Paragraph("<b>Printed Name</b>", body_style),
-            Paragraph("<b>Date</b>", body_style),
-        ],
-        [
-            Paragraph("________________________", body_style),
-            Paragraph(applicant.get("name") or "________________________", body_style),
-            Paragraph(date.today().strftime("%m / %d / %Y"), body_style),
-        ],
-    ]
-    sig_table = Table(sig_data, colWidths=[2.7 * inch, 2.7 * inch, 1.6 * inch])
-    sig_table.setStyle(TableStyle([
-        ("FONTSIZE", (0, 0), (-1, -1), 10),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-        ("TOPPADDING", (0, 0), (-1, -1), 6),
-    ]))
-    story.append(sig_table)
-
-    # ── Footer note ──────────────────────────────────────────────────────────
-    story.append(Spacer(1, 12))
+    # ── Footer ────────────────────────────────────────────────────────────────
+    story.append(Spacer(1, 14))
     story.append(Paragraph(
-        f"Submit this completed form and all attachments to the {hoa_name} Architectural Review Committee. "
-        "Do not begin work until written approval is received. "
+        f"Submit this completed form and all attachments to the {hoa_name} Architectural Review "
+        "Committee. Do not begin work until written approval is received. "
         "Generated by Ez-ARC Review · ezarc-friendly-review.lovable.app",
-        small_style,
+        s["small"],
     ))
 
     doc.build(story)
     return buf.getvalue()
+
+
+def _add_default_sig(story: list, applicant: dict[str, str], s: dict) -> None:
+    story.append(Spacer(1, 18))
+    story.append(HRFlowable(width="100%", thickness=0.5, color=_BORDER))
+    story.append(Spacer(1, 10))
+    sig_data = [
+        [Paragraph("<b>Applicant Signature</b>", s["body"]),
+         Paragraph("<b>Printed Name</b>", s["body"]),
+         Paragraph("<b>Date</b>", s["body"])],
+        [Paragraph("________________________", s["body"]),
+         Paragraph(applicant.get("name") or "________________________", s["body"]),
+         Paragraph(date.today().strftime("%m / %d / %Y"), s["body"])],
+    ]
+    t = Table(sig_data, colWidths=[2.7*inch, 2.7*inch, 1.6*inch])
+    t.setStyle(TableStyle([
+        ("FONTSIZE", (0, 0), (-1, -1), 10),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("TOPPADDING", (0, 0), (-1, -1), 6),
+    ]))
+    story.append(t)
