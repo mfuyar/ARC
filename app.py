@@ -7,11 +7,15 @@ import os
 import tempfile
 from pathlib import Path
 
-from flask import Flask, Response, flash, redirect, render_template, request, url_for
+from flask import Flask, Response, flash, jsonify, redirect, render_template, request, send_file, url_for
 
 logging.basicConfig(level=logging.INFO)
 
-from pdf_review_helper import compare_pdf_files
+import io
+import json
+
+from pdf_generator import generate_arc_application
+from pdf_review_helper import compare_pdf_files, extract_project_types, get_application_guidance
 
 app = Flask(__name__)  # pylint: disable=invalid-name
 app.secret_key = os.environ.get("SECRET_KEY") or "change-me-in-production"
@@ -133,6 +137,115 @@ def review():
                 pass
 
     return render_template("result.html", review=result)
+
+
+@app.route("/apply", methods=["GET", "POST"])
+def apply():
+    if request.method == "GET":
+        return render_template("apply.html")
+
+    is_park_avenue = request.form.get("is_park_avenue") == "true"
+    project_type = request.form.get("project_type", "").strip()
+    project_description = request.form.get("project_description", "").strip()
+
+    if not project_type:
+        flash("Please select a project type.")
+        return redirect(url_for("apply"))
+
+    owns_guideline_temp = False
+    guideline_path = None
+
+    if is_park_avenue:
+        if PARK_AVENUE_GUIDELINE_TXT.exists():
+            guideline_path = str(PARK_AVENUE_GUIDELINE)
+        elif PARK_AVENUE_GUIDELINE.exists():
+            guideline_path = str(PARK_AVENUE_GUIDELINE)
+        else:
+            flash("The Park Avenue HOA guideline is not set up on this server yet.")
+            return redirect(url_for("apply"))
+    else:
+        guideline_file = request.files.get("guideline_pdf")
+        if not guideline_file or not guideline_file.filename:
+            flash("Please upload the HOA guideline PDF.")
+            return redirect(url_for("apply"))
+        if not _is_pdf(guideline_file):
+            flash("The HOA guideline file does not appear to be a valid PDF.")
+            return redirect(url_for("apply"))
+        guideline_fd, guideline_path = tempfile.mkstemp(suffix=".pdf")
+        os.close(guideline_fd)
+        guideline_file.save(guideline_path)
+        owns_guideline_temp = True
+
+    try:
+        guidance = get_application_guidance(
+            Path(guideline_path) if guideline_path else None,
+            project_type,
+            project_description,
+            is_park_avenue=is_park_avenue,
+        )
+    except Exception as exc:
+        logging.exception("Apply guidance failed")
+        flash(f"Error: {exc}")
+        return redirect(url_for("apply"))
+    finally:
+        if owns_guideline_temp and guideline_path:
+            try:
+                os.unlink(guideline_path)
+            except OSError:
+                pass
+
+    return render_template("apply_result.html", guidance=guidance)
+
+
+@app.route("/extract-project-types", methods=["POST"])
+def extract_types():
+    guideline_file = request.files.get("guideline_pdf")
+    if not guideline_file or not guideline_file.filename:
+        return jsonify({"error": "No guideline PDF uploaded."}), 400
+    if not _is_pdf(guideline_file):
+        return jsonify({"error": "File does not appear to be a valid PDF."}), 400
+
+    guideline_fd, guideline_path = tempfile.mkstemp(suffix=".pdf")
+    try:
+        os.close(guideline_fd)
+        guideline_file.save(guideline_path)
+        result = extract_project_types(Path(guideline_path))
+    except Exception as exc:
+        logging.exception("extract_project_types failed")
+        return jsonify({"error": str(exc)}), 500
+    finally:
+        try:
+            os.unlink(guideline_path)
+        except OSError:
+            pass
+
+    return jsonify(result)
+
+
+@app.route("/generate-application", methods=["POST"])
+def generate_application():
+    try:
+        guidance = json.loads(request.form.get("guidance_json", "{}"))
+        applicant = {
+            "name": request.form.get("name", ""),
+            "email": request.form.get("email", ""),
+            "phone": request.form.get("phone", ""),
+            "mailing_address": request.form.get("mailing_address", ""),
+            "property_address": request.form.get("property_address", ""),
+            "project_description": request.form.get("project_description", ""),
+        }
+        pdf_bytes = generate_arc_application(guidance, applicant)
+        filename = f"ARC_Application_{applicant['name'].replace(' ', '_') or 'Application'}.pdf"
+        return send_file(
+            io.BytesIO(pdf_bytes),
+            mimetype="application/pdf",
+            as_attachment=True,
+            download_name=filename,
+        )
+    except Exception as exc:
+        logging.exception("PDF generation failed")
+        flash(f"Could not generate PDF: {exc}")
+        return redirect(url_for("apply"))
 
 
 def parse_args() -> argparse.Namespace:

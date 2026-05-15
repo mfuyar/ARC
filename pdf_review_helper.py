@@ -316,6 +316,150 @@ def compare_pdf_files(
     return json.loads(response.text)
 
 
+_EXTRACT_TYPES_PROMPT = (
+    "You are an HOA guideline analyst. Read the HOA guideline document and extract every "
+    "project type or improvement category that requires an ARC (Architectural Review Committee) "
+    "application or approval. Include everything — structures, fencing, landscaping, equipment, "
+    "signage, etc.\n\n"
+    "Return only a JSON object with exactly these keys:\n"
+    "  hoa_name     — official name of the HOA\n"
+    "  project_types — list of objects, each with:\n"
+    "                  'label': readable name of the project type (include section ref if available)\n"
+    "                  'value': same as label (used as form value)\n"
+    "                  'group': category group name for grouping in a dropdown\n"
+    "Order the groups and items logically."
+)
+
+
+def extract_project_types(guideline_path: Path) -> dict[str, object]:
+    """Extract project types from an HOA guideline PDF."""
+    client = _make_client()
+
+    txt_path = guideline_path.with_suffix(".txt")
+    if txt_path.exists() and txt_path.stat().st_size >= _MIN_TEXT_CHARS:
+        guideline_text = txt_path.read_text(encoding="utf-8", errors="replace")
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[genai_types.Part(text=f"HOA GUIDELINE DOCUMENT:\n\n{guideline_text}")],
+            config=genai_types.GenerateContentConfig(
+                system_instruction=_EXTRACT_TYPES_PROMPT,
+                response_mime_type="application/json",
+            ),
+        )
+    else:
+        uploaded = client.files.upload(
+            file=guideline_path,
+            config=genai_types.UploadFileConfig(mime_type="application/pdf"),
+        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    genai_types.Part.from_uri(
+                        file_uri=uploaded.uri,
+                        mime_type="application/pdf",
+                    )
+                ],
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=_EXTRACT_TYPES_PROMPT,
+                    response_mime_type="application/json",
+                ),
+            )
+        finally:
+            try:
+                client.files.delete(name=uploaded.name)
+            except Exception:
+                pass
+
+    return json.loads(response.text)
+
+
+_APPLY_SYSTEM_PROMPT = (
+    "You are an HOA/ARC application specialist. A homeowner wants to submit an ARC application "
+    "and needs to know exactly what to include to get approved fast. "
+    "You will be given the HOA guideline document and the homeowner's project type and description.\n\n"
+    "Extract the official HOA name from the guideline and use it throughout your response.\n\n"
+    "Be specific and evidence-based — always cite the exact guideline section or rule number "
+    "when listing requirements. Never use vague language.\n\n"
+    "Return only a JSON object with exactly these keys:\n"
+    "  hoa_name             — official HOA name from the guideline\n"
+    "  project_type         — the project type as provided\n"
+    "  overview             — 2-3 sentence summary of what this project requires under the guidelines\n"
+    "  required_info        — list of specific information the homeowner must state in their application "
+    "(e.g. exact dimensions, materials, colors, location on property). "
+    "Each item must cite the guideline section it comes from.\n"
+    "  required_documents   — list of documents, drawings, photos, or attachments required for submission. "
+    "Each item must cite the guideline section it comes from.\n"
+    "  key_rules            — list of the most important guideline rules for this project type "
+    "(e.g. max height, setback requirements, approved materials). "
+    "Each item must quote the rule and cite its section.\n"
+    "  common_mistakes      — list of specific mistakes homeowners make on this project type "
+    "that cause rejection or delay. Each must reference the guideline rule being violated.\n"
+    "  fast_approval_tips   — list of short actionable tips to get this specific project approved faster, "
+    "each referencing the relevant guideline rule"
+)
+
+
+def get_application_guidance(
+    guideline_path: Path | None,
+    project_type: str,
+    project_description: str,
+    is_park_avenue: bool = False,
+) -> dict[str, object]:
+    """Return a checklist and guidance for building an ARC application."""
+    client = _make_client()
+
+    user_request = (
+        f"PROJECT TYPE: {project_type}\n"
+        f"HOMEOWNER DESCRIPTION: {project_description or 'Not provided'}\n\n"
+        "Based on the HOA guideline, tell me exactly what to include in my ARC application "
+        "to get approved as fast as possible."
+    )
+
+    # Always use txt or PDF directly — the review cache uses a different system prompt
+    txt_path = Path(guideline_path).with_suffix(".txt") if guideline_path else None
+    if txt_path and txt_path.exists() and txt_path.stat().st_size >= _MIN_TEXT_CHARS:
+        guideline_text = txt_path.read_text(encoding="utf-8", errors="replace")
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=[
+                genai_types.Part(text=f"HOA GUIDELINE DOCUMENT:\n\n{guideline_text}"),
+                genai_types.Part(text=user_request),
+            ],
+            config=genai_types.GenerateContentConfig(
+                system_instruction=_APPLY_SYSTEM_PROMPT,
+                response_mime_type="application/json",
+            ),
+        )
+    else:
+        guideline_file = client.files.upload(
+            file=guideline_path,
+            config=genai_types.UploadFileConfig(mime_type="application/pdf"),
+        )
+        try:
+            response = client.models.generate_content(
+                model="gemini-2.5-flash",
+                contents=[
+                    genai_types.Part.from_uri(
+                        file_uri=guideline_file.uri,
+                        mime_type="application/pdf",
+                    ),
+                    genai_types.Part(text=user_request),
+                ],
+                config=genai_types.GenerateContentConfig(
+                    system_instruction=_APPLY_SYSTEM_PROMPT,
+                    response_mime_type="application/json",
+                ),
+            )
+        finally:
+            try:
+                client.files.delete(name=guideline_file.name)
+            except Exception:
+                pass
+
+    return json.loads(response.text)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Review HOA guideline vs ARC application PDFs for compliance."

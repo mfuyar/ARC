@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Application Checklist — Ez-ARC Review</title>
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header>
+      <nav>
+        <div class="brand"><a href="{{ url_for('index') }}" style="color:inherit;text-decoration:none">Ez-ARC Review</a></div>
+        <div class="nav-links">
+          <a href="{{ url_for('apply') }}">New checklist</a>
+          <a href="{{ url_for('index') }}">Review an application</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="result-page">
+      <div class="result-card">
+        {% if guidance.hoa_name %}
+          <p class="hoa-name-badge">{{ guidance.hoa_name }}</p>
+        {% endif %}
+
+        <h1>Your ARC Application Checklist</h1>
+        <p><strong>Project:</strong> {{ guidance.project_type }}</p>
+        <p>{{ guidance.overview }}</p>
+
+        {% if guidance.required_info %}
+          <div class="checklist-section">
+            <h2>Required information to include</h2>
+            <ul class="checklist">
+              {% for item in guidance.required_info %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if guidance.required_documents %}
+          <div class="checklist-section">
+            <h2>Documents &amp; attachments to submit</h2>
+            <ul class="checklist">
+              {% for item in guidance.required_documents %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if guidance.key_rules %}
+          <div class="checklist-section rules-section">
+            <h2>Key guideline rules for this project</h2>
+            <ul class="checklist">
+              {% for item in guidance.key_rules %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if guidance.common_mistakes %}
+          <div class="checklist-section mistakes-section">
+            <h2>Common mistakes that cause rejection</h2>
+            <ul class="checklist">
+              {% for item in guidance.common_mistakes %}
+                <li>{{ item }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        {% if guidance.fast_approval_tips %}
+          <div class="quick-tips">
+            <h2>Tips to get approved faster</h2>
+            <ul>
+              {% for tip in guidance.fast_approval_tips %}
+                <li>{{ tip }}</li>
+              {% endfor %}
+            </ul>
+          </div>
+        {% endif %}
+
+        <div style="margin-top:2rem; display:flex; gap:1rem; flex-wrap:wrap;">
+          <a class="button-primary" href="{{ url_for('apply') }}">New checklist</a>
+          <a class="button-secondary" href="{{ url_for('index') }}" style="color:#1e293b">Review my application</a>
+        </div>
+
+        <!-- Generate PDF Application -->
+        <div class="generate-pdf-card">
+          <h2>Generate your ARC application PDF</h2>
+          <p>Fill in your details and download a ready-to-submit PDF application with your checklist built in.</p>
+          <form action="{{ url_for('generate_application') }}" method="post">
+            <input type="hidden" name="guidance_json" value="{{ guidance | tojson | e }}">
+
+            <div class="pdf-fields">
+              <div class="pdf-field">
+                <label for="name">Owner name</label>
+                <input type="text" id="name" name="name" placeholder="Jane Smith" required>
+              </div>
+              <div class="pdf-field">
+                <label for="email">Email address</label>
+                <input type="email" id="email" name="email" placeholder="jane@email.com">
+              </div>
+              <div class="pdf-field">
+                <label for="phone">Phone number</label>
+                <input type="tel" id="phone" name="phone" placeholder="(555) 000-0000">
+              </div>
+              <div class="pdf-field pdf-field--full">
+                <label for="mailing_address">Mailing address</label>
+                <input type="text" id="mailing_address" name="mailing_address" placeholder="123 Main St, City, NC 12345">
+              </div>
+              <div class="pdf-field pdf-field--full">
+                <label for="property_address">Property / project address <span style="font-weight:400;color:#64748b">(if different)</span></label>
+                <input type="text" id="property_address" name="property_address" placeholder="456 Oak Ave, City, NC 12345">
+              </div>
+              <div class="pdf-field pdf-field--full">
+                <label for="project_description">Project description</label>
+                <textarea id="project_description" name="project_description" rows="3" placeholder="Describe your project in your own words…"></textarea>
+              </div>
+            </div>
+
+            <button type="submit" class="button-primary" style="margin-top:1.25rem; width:100%;">
+              Download PDF Application
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+
+    <footer>
+      <p>© 2026 Ez-ARC Review. All rights reserved.</p>
+    </footer>
+  </body>
+</html>

@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Build Your ARC Application — Ez-ARC Review</title>
+    <meta name="description" content="Tell us what you want to build and upload your HOA guideline. Ez-ARC Review tells you exactly what to include in your ARC application to get approved fast.">
+    <meta name="robots" content="index, follow">
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+    <header>
+      <nav>
+        <div class="brand"><a href="{{ url_for('index') }}" style="color:inherit;text-decoration:none">Ez-ARC Review</a></div>
+        <div class="nav-links">
+          <a href="{{ url_for('index') }}">Review an application</a>
+          <a href="{{ url_for('apply') }}" class="nav-apply">Build an Application</a>
+        </div>
+      </nav>
+    </header>
+
+    <main class="hero" style="grid-template-columns:1fr; text-align:center; padding: 2rem 1.5rem;">
+      <section class="hero-copy" style="max-width:640px; margin:0 auto;">
+        <p style="text-transform: uppercase; letter-spacing: .2em; color: #38bdf8; font-weight: 700; margin-bottom: 1rem;">Get approved the first time.</p>
+        <h1>Build a complete ARC application</h1>
+        <p>Tell us what you want to improve and upload your HOA guideline. We'll read the rules and give you a precise checklist of everything to include so your application gets approved fast.</p>
+      </section>
+    </main>
+
+    <section class="section">
+      <div class="upload-card" id="apply-form">
+        <h2>What do you want to build?</h2>
+
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            <div class="flash">{{ messages[0] }}</div>
+          {% endif %}
+        {% endwith %}
+
+        <!-- Step 1: membership -->
+        <div id="membership-step">
+          <p class="membership-question">Are you a <strong>Park Avenue HOA</strong> member?</p>
+          <div class="membership-btns">
+            <button type="button" class="member-btn" id="btn-yes">
+              <span class="member-icon">🏘️</span>
+              Yes, I'm a Park Avenue member
+            </button>
+            <button type="button" class="member-btn" id="btn-no">
+              <span class="member-icon">📄</span>
+              No, I have my own guideline
+            </button>
+          </div>
+        </div>
+
+        <!-- Step 2a: non-member guideline upload (shown before form) -->
+        <div id="guideline-upload-step" style="display:none">
+          <p style="margin-bottom:1rem;color:#475569;">Upload your HOA guideline PDF and we'll read it to find all project types that require approval.</p>
+          <div class="drop-zone" id="drop-guideline-pre" data-input="guideline_pdf_pre">
+            <div class="drop-icon">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            </div>
+            <p class="drop-label">HOA Guideline PDF</p>
+            <p class="drop-hint">Drag &amp; drop or <span class="drop-browse">browse</span></p>
+            <p class="drop-filename" id="name-guideline_pdf_pre"></p>
+            <input id="guideline_pdf_pre" name="guideline_pdf_pre" type="file" accept="application/pdf">
+          </div>
+          <div id="extract-status" style="display:none; margin-top:1rem; color:#0ea5e9; font-weight:600;">
+            Reading your guideline… this may take a moment
+          </div>
+          <div id="extract-error" style="display:none; margin-top:1rem;" class="flash"></div>
+        </div>
+
+        <!-- Step 2b: form (shown after guideline analyzed or Park Avenue selected) -->
+        <form id="apply-form-el" action="{{ url_for('apply') }}" method="post" enctype="multipart/form-data" style="display:none">
+          <input type="hidden" name="is_park_avenue" id="is_park_avenue" value="false">
+          <!-- hidden file input re-attached for non-members so the PDF is submitted with the form -->
+          <input type="hidden" name="guideline_extracted" id="guideline_extracted" value="false">
+
+          <!-- Park Avenue static dropdown (shown only for members) -->
+          <div id="pa-select-wrap" style="display:none">
+            <label class="apply-label" for="project_type_pa">Project type</label>
+            <select id="project_type_pa" name="project_type_pa" class="apply-select">
+              <option value="" disabled selected>Select what you want to build or change…</option>
+              <optgroup label="Structures &amp; Additions">
+                <option value="Building Addition or Exterior Alterations (including doors, gutters)">Building Addition or Exterior Alterations (including doors, gutters) — §3.02</option>
+                <option value="Decks / Back Porches / Balconies">Decks / Back Porches / Balconies — §3.03</option>
+                <option value="Exterior Freestanding Detached Structures (including pet houses)">Exterior Freestanding Detached Structures / Sheds — §3.05</option>
+                <option value="Playhouses">Playhouses — §3.19</option>
+                <option value="Retaining Walls">Retaining Walls — §3.21</option>
+                <option value="Walkways and Patios">Walkways and Patios — §3.30</option>
+              </optgroup>
+              <optgroup label="Fencing &amp; Enclosures">
+                <option value="Fences">Fences — §3.06</option>
+                <option value="Garbage/Recycling Can Screens, Privacy Panels, and Other Enclosures">Garbage/Recycling Can Screens, Privacy Panels &amp; Enclosures — §3.08</option>
+              </optgroup>
+              <optgroup label="Driveways &amp; Parking">
+                <option value="Parking Pads and Driveways">Parking Pads and Driveways — §3.16</option>
+                <option value="Parking">Parking — §3.15</option>
+              </optgroup>
+              <optgroup label="Water &amp; Recreation">
+                <option value="Hot Tubs / Swimming Pools / Spas">Hot Tubs / Swimming Pools / Spas — §3.09</option>
+                <option value="Playsets, Recreational Equipment, and Basketball Goals">Playsets, Recreational Equipment &amp; Basketball Goals — §3.18</option>
+                <option value="Rain Barrels">Rain Barrels — §3.20</option>
+                <option value="Drainage">Drainage — §3.04</option>
+              </optgroup>
+              <optgroup label="Exterior Appearance">
+                <option value="Painting (Exterior)">Exterior Painting — §3.14</option>
+                <option value="Siding">Siding — §3.26</option>
+                <option value="Roofing, Roof Accessories, and Equipment">Roofing, Roof Accessories &amp; Equipment — §3.22</option>
+                <option value="Window Coverings">Window Coverings — §3.31</option>
+                <option value="Mailboxes">Mailboxes — §3.12</option>
+                <option value="Lighting (Exterior)">Exterior Lighting — §3.11</option>
+              </optgroup>
+              <optgroup label="Landscaping &amp; Garden">
+                <option value="Landscaping / Water Gardens / Vegetable Garden / Raised Beds">Landscaping / Water Gardens / Vegetable Garden / Raised Beds — §3.10</option>
+                <option value="Birdbaths, Birdfeeders, Birdhouses, and Fountains">Birdbaths, Birdfeeders, Birdhouses &amp; Fountains — §3.01</option>
+                <option value="Woodpiles, Fuel Tanks, etc.">Woodpiles, Fuel Tanks, etc. — §3.32</option>
+              </optgroup>
+              <optgroup label="Equipment &amp; Technology">
+                <option value="Solar Panels">Solar Panels — §3.28</option>
+                <option value="Satellite Dishes and Antennas">Satellite Dishes and Antennas — §3.23</option>
+                <option value="Storage and Use of Open-Flame Devices">Storage and Use of Open-Flame Devices — §3.29</option>
+              </optgroup>
+              <optgroup label="Signage &amp; Decorations">
+                <option value="Signs / Banners">Signs / Banners — §3.27</option>
+                <option value="Flags">Flags — §3.07</option>
+                <option value="Seasonal Decorations / Yard Decorations">Seasonal Decorations / Yard Decorations — §3.24</option>
+              </optgroup>
+              <optgroup label="Other">
+                <option value="Maintenance">Maintenance — §3.13</option>
+                <option value="Setbacks and Lot Restrictions">Setbacks and Lot Restrictions — §3.25</option>
+                <option value="Pets">Pets — §3.17</option>
+                <option value="Yard Sales">Yard Sales — §3.33</option>
+                <option value="Other">Other (describe below)</option>
+              </optgroup>
+            </select>
+          </div>
+
+          <!-- Dynamic dropdown for non-members (populated via JS after guideline upload) -->
+          <div id="dynamic-select-wrap" style="display:none">
+            <label class="apply-label" for="project_type_dynamic">Project type</label>
+            <select id="project_type_dynamic" name="project_type_dynamic" class="apply-select">
+              <option value="" disabled selected>Select what you want to build or change…</option>
+            </select>
+          </div>
+
+          <!-- Hidden unified project_type field submitted with form -->
+          <input type="hidden" name="project_type" id="project_type_hidden" value="">
+
+          <label class="apply-label" for="project_description">Describe your project <span style="font-weight:400;color:#64748b">(optional but helpful)</span></label>
+          <textarea id="project_description" name="project_description" class="apply-textarea" rows="4" placeholder="e.g. I want to build a 6-foot wooden privacy fence along the back and side of my property at 123 Main St."></textarea>
+
+          <!-- Hidden field to carry guideline PDF bytes for non-members (re-upload workaround) -->
+          <input type="file" id="guideline_pdf" name="guideline_pdf" accept="application/pdf" style="display:none">
+
+          <button type="submit" class="button-primary submit-btn" id="submit-btn" disabled>
+            <span id="submit-label">Complete the form to continue</span>
+          </button>
+        </form>
+      </div>
+    </section>
+
+    <footer>
+      <p>© 2026 Ez-ARC Review. All rights reserved.</p>
+      <p class="footer-links">
+        <a href="https://venmo.com/Muhemmet-Uyar" target="_blank" rel="noopener">Support the project</a>
+        <span>·</span>
+        <a href="{{ url_for('index') }}#disclaimer">Disclaimer</a>
+      </p>
+    </footer>
+
+    <script>
+      (function () {
+        var isParkAvenue = false;
+        var guidelineFile = null; // holds the File object for non-members
+
+        // ── Membership buttons ────────────────────────────────────────────────
+        document.getElementById('btn-yes').addEventListener('click', function () {
+          isParkAvenue = true;
+          document.getElementById('is_park_avenue').value = 'true';
+          document.getElementById('membership-step').style.display = 'none';
+          showParkAvenueForm();
+        });
+
+        document.getElementById('btn-no').addEventListener('click', function () {
+          isParkAvenue = false;
+          document.getElementById('is_park_avenue').value = 'false';
+          document.getElementById('membership-step').style.display = 'none';
+          document.getElementById('guideline-upload-step').style.display = 'block';
+        });
+
+        // ── Park Avenue path: show static dropdown immediately ────────────────
+        function showParkAvenueForm() {
+          document.getElementById('pa-select-wrap').style.display = 'block';
+          document.getElementById('dynamic-select-wrap').style.display = 'none';
+          document.getElementById('apply-form-el').style.display = 'block';
+          updateSubmit();
+        }
+
+        // ── Non-member path: guideline drop zone ──────────────────────────────
+        var preDropZone = document.getElementById('drop-guideline-pre');
+        var preInput = document.getElementById('guideline_pdf_pre');
+        var preNameEl = document.getElementById('name-guideline_pdf_pre');
+
+        function handleGuidelineFile(file) {
+          if (!file || file.type !== 'application/pdf') return;
+          guidelineFile = file;
+          preDropZone.classList.add('has-file');
+          preNameEl.textContent = file.name;
+          extractTypes(file);
+        }
+
+        preInput.addEventListener('change', function () {
+          if (preInput.files[0]) handleGuidelineFile(preInput.files[0]);
+        });
+        preDropZone.addEventListener('dragover', function (e) { e.preventDefault(); preDropZone.classList.add('drag-over'); });
+        preDropZone.addEventListener('dragleave', function () { preDropZone.classList.remove('drag-over'); });
+        preDropZone.addEventListener('drop', function (e) {
+          e.preventDefault();
+          preDropZone.classList.remove('drag-over');
+          handleGuidelineFile(e.dataTransfer.files[0]);
+        });
+
+        // ── Call /extract-project-types and build dynamic dropdown ────────────
+        function extractTypes(file) {
+          var statusEl = document.getElementById('extract-status');
+          var errorEl = document.getElementById('extract-error');
+          statusEl.style.display = 'block';
+          errorEl.style.display = 'none';
+
+          var fd = new FormData();
+          fd.append('guideline_pdf', file);
+
+          fetch('/extract-project-types', { method: 'POST', body: fd })
+            .then(function (res) { return res.json(); })
+            .then(function (data) {
+              statusEl.style.display = 'none';
+              if (data.error) {
+                errorEl.textContent = data.error;
+                errorEl.style.display = 'block';
+                return;
+              }
+              buildDynamicDropdown(data.project_types || []);
+              // Mirror the file into the hidden file input so it submits with the form
+              var hiddenInput = document.getElementById('guideline_pdf');
+              var dt = new DataTransfer(); dt.items.add(file); hiddenInput.files = dt.files;
+              document.getElementById('dynamic-select-wrap').style.display = 'block';
+              document.getElementById('pa-select-wrap').style.display = 'none';
+              document.getElementById('guideline-upload-step').style.display = 'none';
+              document.getElementById('apply-form-el').style.display = 'block';
+              updateSubmit();
+            })
+            .catch(function (err) {
+              statusEl.style.display = 'none';
+              errorEl.textContent = 'Could not read the guideline. Please try again.';
+              errorEl.style.display = 'block';
+            });
+        }
+
+        function buildDynamicDropdown(projectTypes) {
+          var select = document.getElementById('project_type_dynamic');
+          // Remove all options except the placeholder
+          while (select.options.length > 1) select.remove(1);
+
+          var groups = {};
+          projectTypes.forEach(function (pt) {
+            var g = pt.group || 'Other';
+            if (!groups[g]) groups[g] = [];
+            groups[g].push(pt);
+          });
+
+          Object.keys(groups).forEach(function (groupName) {
+            var optgroup = document.createElement('optgroup');
+            optgroup.label = groupName;
+            groups[groupName].forEach(function (pt) {
+              var opt = document.createElement('option');
+              opt.value = pt.value || pt.label;
+              opt.textContent = pt.label;
+              optgroup.appendChild(opt);
+            });
+            select.appendChild(optgroup);
+          });
+        }
+
+        // ── Sync active dropdown → hidden project_type field ─────────────────
+        function getActiveSelect() {
+          return isParkAvenue
+            ? document.getElementById('project_type_pa')
+            : document.getElementById('project_type_dynamic');
+        }
+
+        document.getElementById('project_type_pa').addEventListener('change', syncAndUpdate);
+        document.getElementById('project_type_dynamic').addEventListener('change', syncAndUpdate);
+
+        function syncAndUpdate() {
+          var sel = getActiveSelect();
+          document.getElementById('project_type_hidden').value = sel ? sel.value : '';
+          updateSubmit();
+        }
+
+        // ── Enable/disable submit ─────────────────────────────────────────────
+        function updateSubmit() {
+          var btn = document.getElementById('submit-btn');
+          var label = document.getElementById('submit-label');
+          var typeVal = document.getElementById('project_type_hidden').value;
+          var ready = typeVal !== '';
+          btn.disabled = !ready;
+          label.textContent = ready ? 'Get my approval checklist' : 'Complete the form to continue';
+        }
+
+        document.getElementById('apply-form-el').addEventListener('submit', function () {
+          // Ensure hidden field is up-to-date
+          var sel = getActiveSelect();
+          if (sel) document.getElementById('project_type_hidden').value = sel.value;
+          var btn = document.getElementById('submit-btn');
+          btn.disabled = true;
+          document.getElementById('submit-label').textContent = 'Analyzing guidelines… this may take a moment';
+          btn.classList.add('loading');
+        });
+      })();
+    </script>
+  </body>
+</html>
