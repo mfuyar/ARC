@@ -156,6 +156,7 @@ def _build_park_avenue_cache(client: genai.Client, guideline_path: Path) -> str 
                 file=guideline_path,
                 config=genai_types.UploadFileConfig(mime_type="application/pdf"),
             )
+            _wait_active(client, uploaded)
             try:
                 cache = client.caches.create(
                     model="gemini-2.5-flash",
@@ -212,6 +213,19 @@ def _make_client() -> genai.Client:
     return genai.Client(api_key=api_key)
 
 
+def _wait_active(client: genai.Client, file, timeout: int = 30) -> None:
+    """Poll until the uploaded file reaches ACTIVE state."""
+    for _ in range(timeout):
+        f = client.files.get(name=file.name)
+        state = f.state.name if hasattr(f.state, "name") else str(f.state)
+        if state == "ACTIVE":
+            return
+        if state == "FAILED":
+            raise ValueError(f"Gemini file processing failed for {file.name}")
+        time.sleep(1)
+    raise ValueError(f"Gemini file did not become active within {timeout}s")
+
+
 def compare_pdf_files(
     guideline_path: Path | None,
     application_path: Path,
@@ -229,6 +243,7 @@ def compare_pdf_files(
         file=application_path,
         config=genai_types.UploadFileConfig(mime_type="application/pdf"),
     )
+    _wait_active(client, app_file)
 
     try:
         cache_name = None
@@ -281,6 +296,7 @@ def compare_pdf_files(
                     file=guideline_path,
                     config=genai_types.UploadFileConfig(mime_type="application/pdf"),
                 )
+                _wait_active(client, guideline_file)
                 try:
                     response = client.models.generate_content(
                         model="gemini-2.5-flash",
@@ -351,6 +367,7 @@ def extract_project_types(guideline_path: Path) -> dict[str, object]:
             file=guideline_path,
             config=genai_types.UploadFileConfig(mime_type="application/pdf"),
         )
+        _wait_active(client, uploaded)
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
@@ -447,6 +464,7 @@ def get_application_guidance(
             file=guideline_path,
             config=genai_types.UploadFileConfig(mime_type="application/pdf"),
         )
+        _wait_active(client, guideline_file)
         try:
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
