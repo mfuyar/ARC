@@ -106,7 +106,35 @@
           <h3>Approval tracking</h3>
           <p>Show decision status and conditions clearly, so homeowners understand what is approved and what still needs work.</p>
         </div>
+        <div class="card">
+          <h3>Build an Application</h3>
+          <p>Upload your HOA guideline, pick your project type, and get a precise checklist of everything to include — then download a ready-to-submit PDF application.</p>
+          <a href="{{ url_for('apply') }}" class="card-link">Start building &rarr;</a>
+        </div>
       </div>
+    </section>
+
+    <!-- Sponsored -->
+    <section class="section sponsored-section">
+      <a href="https://thermomixdeals.com" target="_blank" rel="noopener sponsored" class="sponsored-card">
+        <div class="sponsored-label">Sponsored</div>
+        <div class="sponsored-inner">
+          <div class="sponsored-img">
+            <img src="{{ url_for('static', filename='tm7.jpg') }}" alt="Thermomix TM7 family cooking">
+          </div>
+          <div class="sponsored-copy">
+            <p class="sponsored-tag">Exclusive Deals</p>
+            <h3 class="sponsored-title">Thermomix® — Best Prices &amp; Bundles</h3>
+            <p class="sponsored-desc">Find the latest Thermomix deals, seasonal promotions, and bundle offers — all in one place. Cook smarter, save more.</p>
+            <span class="sponsored-cta">Shop deals &rarr;</span>
+          </div>
+          <div class="sponsored-badges">
+            <div class="s-badge">🍲 All-in-one cooking</div>
+            <div class="s-badge">💰 Best price guarantee</div>
+            <div class="s-badge">🚚 Free shipping</div>
+          </div>
+        </div>
+      </a>
     </section>
 
     <section class="section" id="start">
